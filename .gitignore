@@ -23,5 +23,11 @@ __pycache__/
 # Logs
 *.log
 
+# Build artifacts
+**/build/
+**/.dart_tool/
+**/ephemeral/
+**/.gradle/
+
 # Docker
 .dockerignore
