@@ -3,7 +3,7 @@
 !.env.example
 
 # Database
-data/
+/data/
 *.sqlite
 *.db
 
