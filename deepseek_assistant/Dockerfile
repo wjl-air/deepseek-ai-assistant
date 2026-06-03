@@ -3,6 +3,10 @@ FROM ghcr.io/cirruslabs/flutter:stable AS builder
 
 WORKDIR /app
 
+# 使用国内 Flutter 镜像
+ENV FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+ENV PUB_HOSTED_URL=https://pub.flutter-io.cn
+
 # 复制依赖文件
 COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
