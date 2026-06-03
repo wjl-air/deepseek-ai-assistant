@@ -1,0 +1,27 @@
+# Environment variables
+.env
+!.env.example
+
+# Database
+data/
+*.sqlite
+*.db
+
+# Test files
+test_*.py
+test_write.txt
+
+# IDE
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs
+*.log
+
+# Docker
+.dockerignore

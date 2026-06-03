@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: deepseek-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///./data/chat_db.sqlite
+      - SECRET_KEY=${SECRET_KEY}
+      - REFRESH_SECRET_KEY=${REFRESH_SECRET_KEY}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+    networks:
+      - deepseek-network
+
+  frontend:
+    build:
+      context: ./deepseek_assistant
+      dockerfile: Dockerfile
+    container_name: deepseek-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - deepseek-network
+
+networks:
+  deepseek-network:
+    driver: bridge
