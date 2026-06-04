@@ -75,7 +75,8 @@ class AuthProvider extends StateNotifier<AuthState> {
   }
 
   Future<void> _writeSecure(String key, String value) async {
-    if (_useWebFallback || _secureStorage == null) {
+    final storage = _secureStorage;
+    if (storage == null || _useWebFallback) {
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('secure_$key', value);
@@ -84,7 +85,7 @@ class AuthProvider extends StateNotifier<AuthState> {
       }
     } else {
       try {
-        await _secureStorage!.write(key: key, value: value);
+        await storage.write(key: key, value: value);
       } catch (e) {
         debugPrint('Secure storage write error, falling back: $e');
         _useWebFallback = true;
@@ -95,7 +96,8 @@ class AuthProvider extends StateNotifier<AuthState> {
   }
 
   Future<String?> _readSecure(String key) async {
-    if (_useWebFallback || _secureStorage == null) {
+    final storage = _secureStorage;
+    if (storage == null || _useWebFallback) {
       try {
         final prefs = await SharedPreferences.getInstance();
         return prefs.getString('secure_$key');
@@ -105,7 +107,7 @@ class AuthProvider extends StateNotifier<AuthState> {
       }
     } else {
       try {
-        return await _secureStorage!.read(key: key);
+        return await storage.read(key: key);
       } catch (e) {
         debugPrint('Secure storage read error, falling back: $e');
         _useWebFallback = true;
@@ -116,7 +118,8 @@ class AuthProvider extends StateNotifier<AuthState> {
   }
 
   Future<void> _deleteSecure(String key) async {
-    if (_useWebFallback || _secureStorage == null) {
+    final storage = _secureStorage;
+    if (storage == null || _useWebFallback) {
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.remove('secure_$key');
@@ -125,7 +128,7 @@ class AuthProvider extends StateNotifier<AuthState> {
       }
     } else {
       try {
-        await _secureStorage!.delete(key: key);
+        await storage.delete(key: key);
       } catch (e) {
         debugPrint('Secure storage delete error: $e');
       }
