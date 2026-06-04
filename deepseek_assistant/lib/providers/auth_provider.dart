@@ -143,8 +143,23 @@ class AuthProvider extends StateNotifier<AuthState> {
   }
 
   Future<void> _loadTokens() async {
-    final accessToken = await _secureStorage.read(key: 'access_token');
-    final refreshToken = await _secureStorage.read(key: 'refresh_token');
+    String? accessToken;
+    String? refreshToken;
+
+    try {
+      accessToken = await _secureStorage.read(key: 'access_token');
+      refreshToken = await _secureStorage.read(key: 'refresh_token');
+    } catch (e) {
+      debugPrint('Secure storage read error: $e');
+      // Fallback: try to read from SharedPreferences on web
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        accessToken = prefs.getString('access_token_web');
+        refreshToken = prefs.getString('refresh_token_web');
+      } catch (e2) {
+        debugPrint('SharedPreferences fallback error: $e2');
+      }
+    }
 
     if (accessToken != null && refreshToken != null) {
       final prefs = await SharedPreferences.getInstance();
@@ -185,22 +200,44 @@ class AuthProvider extends StateNotifier<AuthState> {
 
   Future<String?> login(String email, String password) async {
     try {
+      debugPrint('Attempting login for: $email');
+      debugPrint('API base URL: ${AppConfig.backendApiBaseUrl}');
+
       final response = await _dio.post(
         '/auth/login',
         data: {'email': email, 'password': password},
       );
 
+      debugPrint('Login response status: ${response.statusCode}');
+
       if (response.statusCode == 200) {
         final data = response.data;
+        debugPrint('Login response data: $data');
+
         final accessToken = data['access_token'];
         final refreshToken = data['refresh_token'];
         final userId = data['user_id'].toString();
 
-        await _secureStorage.write(key: 'access_token', value: accessToken);
-        await _secureStorage.write(key: 'refresh_token', value: refreshToken);
+        debugPrint('Storing tokens...');
+        try {
+          await _secureStorage.write(key: 'access_token', value: accessToken);
+          await _secureStorage.write(key: 'refresh_token', value: refreshToken);
+          debugPrint('Tokens stored in secure storage');
+        } catch (storageError) {
+          debugPrint('Secure storage error, using SharedPreferences fallback: $storageError');
+        }
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_id', userId);
+        debugPrint('Getting SharedPreferences...');
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_id', userId);
+          // Also store tokens in SharedPreferences as fallback for web
+          await prefs.setString('access_token_web', accessToken);
+          await prefs.setString('refresh_token_web', refreshToken);
+          debugPrint('SharedPreferences updated');
+        } catch (prefsError) {
+          debugPrint('SharedPreferences error: $prefsError');
+        }
 
         String? nickname;
         try {
@@ -218,7 +255,13 @@ class AuthProvider extends StateNotifier<AuthState> {
         }
 
         nickname ??= email.split('@')[0];
-        await prefs.setString('nickname', nickname);
+
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('nickname', nickname);
+        } catch (e) {
+          debugPrint('Failed to save nickname: $e');
+        }
 
         state = state.copyWith(
           isAuthenticated: true,
@@ -227,11 +270,14 @@ class AuthProvider extends StateNotifier<AuthState> {
           userId: userId,
           nickname: nickname,
         );
+        debugPrint('Login successful!');
         return null;
       }
       return '用户名或密码错误';
     } on DioException catch (e) {
-      debugPrint('Login error: ${e.response?.data}');
+      debugPrint('Login DioException: ${e.message}');
+      debugPrint('Response data: ${e.response?.data}');
+      debugPrint('Status code: ${e.response?.statusCode}');
       final detail = e.response?.data?['detail'];
       if (detail != null && detail is String && detail.isNotEmpty) {
         return detail;
@@ -239,10 +285,11 @@ class AuthProvider extends StateNotifier<AuthState> {
       if (e.response?.statusCode == 401) {
         return '用户名或密码错误';
       }
-      return '登录失败，请检查网络后重试';
-    } catch (e) {
-      debugPrint('Login error: $e');
-      return '登录失败，请检查网络后重试';
+      return '登录失败: ${e.message}';
+    } catch (e, stackTrace) {
+      debugPrint('Login unexpected error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      return '登录失败: $e';
     }
   }
 
@@ -410,11 +457,21 @@ class AuthProvider extends StateNotifier<AuthState> {
   }
 
   Future<void> _clearStoredTokens() async {
-    await _secureStorage.delete(key: 'access_token');
-    await _secureStorage.delete(key: 'refresh_token');
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('user_id');
-    await prefs.remove('nickname');
+    try {
+      await _secureStorage.delete(key: 'access_token');
+      await _secureStorage.delete(key: 'refresh_token');
+    } catch (e) {
+      debugPrint('Secure storage delete error: $e');
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('user_id');
+      await prefs.remove('nickname');
+      await prefs.remove('access_token_web');
+      await prefs.remove('refresh_token_web');
+    } catch (e) {
+      debugPrint('SharedPreferences clear error: $e');
+    }
   }
 
   Future<bool> _performRefreshToken() async {
