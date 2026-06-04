@@ -274,9 +274,15 @@ class AuthProvider extends StateNotifier<AuthState> {
         final data = response.data;
         debugPrint('Login response data: $data');
 
-        final accessToken = data['access_token'];
-        final refreshToken = data['refresh_token'];
-        final userId = data['user_id'].toString();
+        // 安全地获取数据，避免空值错误
+        final accessToken = data['access_token'] as String?;
+        final refreshToken = data['refresh_token'] as String?;
+        final userIdRaw = data['user_id'];
+        final userId = userIdRaw != null ? userIdRaw.toString() : null;
+
+        if (accessToken == null || refreshToken == null || userId == null) {
+          return '登录响应数据不完整';
+        }
 
         debugPrint('Storing tokens...');
         await _writeSecure('access_token', accessToken);
@@ -297,7 +303,7 @@ class AuthProvider extends StateNotifier<AuthState> {
             ),
           );
           if (meResponse.statusCode == 200) {
-            nickname = meResponse.data['nickname'];
+            nickname = meResponse.data['nickname'] as String?;
           }
         } catch (e) {
           debugPrint('Failed to fetch user info: $e');
@@ -412,9 +418,15 @@ class AuthProvider extends StateNotifier<AuthState> {
 
       if (response.statusCode == 200) {
         final data = response.data;
-        final accessToken = data['access_token'];
-        final refreshToken = data['refresh_token'];
-        final userId = data['user_id'].toString();
+        // 安全地获取数据
+        final accessToken = data['access_token'] as String?;
+        final refreshToken = data['refresh_token'] as String?;
+        final userIdRaw = data['user_id'];
+        final userId = userIdRaw != null ? userIdRaw.toString() : null;
+
+        if (accessToken == null || refreshToken == null || userId == null) {
+          return '登录响应数据不完整';
+        }
 
         await _writeSecure('access_token', accessToken);
         await _writeSecure('refresh_token', refreshToken);
@@ -431,7 +443,7 @@ class AuthProvider extends StateNotifier<AuthState> {
             ),
           );
           if (meResponse.statusCode == 200) {
-            nickname = meResponse.data['nickname'];
+            nickname = meResponse.data['nickname'] as String?;
           }
         } catch (e) {
           debugPrint('Failed to fetch user info: $e');
