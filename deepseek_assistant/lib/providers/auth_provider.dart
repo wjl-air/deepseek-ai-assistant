@@ -56,17 +56,19 @@ class AuthProvider extends StateNotifier<AuthState> {
   bool _useWebFallback = false;
 
   Future<void> _initStorage() async {
+    if (kIsWeb) {
+      // On web, always use SharedPreferences fallback
+      debugPrint('Web platform detected, using SharedPreferences for storage');
+      _secureStorage = null;
+      _useWebFallback = true;
+      return;
+    }
     try {
       _secureStorage = const FlutterSecureStorage(
         aOptions: AndroidOptions(encryptedSharedPreferences: true),
       );
-      // Test if secure storage works on web
-      if (kIsWeb) {
-        await _secureStorage!.write(key: '__test__', value: '1');
-        await _secureStorage!.delete(key: '__test__');
-      }
     } catch (e) {
-      debugPrint('Secure storage not available, using SharedPreferences fallback: $e');
+      debugPrint('Secure storage not available: $e');
       _secureStorage = null;
       _useWebFallback = true;
     }
