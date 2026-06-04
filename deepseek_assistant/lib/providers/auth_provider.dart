@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -46,16 +45,90 @@ class AuthState {
 class AuthProvider extends StateNotifier<AuthState> {
   AuthProvider() : super(AuthState(isAuthenticated: false)) {
     _initDio();
-    _loadTokens();
+    _initStorage().then((_) => _loadTokens());
   }
 
   late final Dio _dio;
   bool _isRefreshing = false;
   final List<Completer<void>> _refreshQueue = [];
 
-  static const _secureStorage = FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  FlutterSecureStorage? _secureStorage;
+  bool _useWebFallback = false;
+
+  Future<void> _initStorage() async {
+    try {
+      _secureStorage = const FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true),
+      );
+      // Test if secure storage works on web
+      if (kIsWeb) {
+        await _secureStorage!.write(key: '__test__', value: '1');
+        await _secureStorage!.delete(key: '__test__');
+      }
+    } catch (e) {
+      debugPrint('Secure storage not available, using SharedPreferences fallback: $e');
+      _secureStorage = null;
+      _useWebFallback = true;
+    }
+  }
+
+  Future<void> _writeSecure(String key, String value) async {
+    if (_useWebFallback || _secureStorage == null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('secure_$key', value);
+      } catch (e) {
+        debugPrint('SharedPreferences write error: $e');
+      }
+    } else {
+      try {
+        await _secureStorage!.write(key: key, value: value);
+      } catch (e) {
+        debugPrint('Secure storage write error, falling back: $e');
+        _useWebFallback = true;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('secure_$key', value);
+      }
+    }
+  }
+
+  Future<String?> _readSecure(String key) async {
+    if (_useWebFallback || _secureStorage == null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        return prefs.getString('secure_$key');
+      } catch (e) {
+        debugPrint('SharedPreferences read error: $e');
+        return null;
+      }
+    } else {
+      try {
+        return await _secureStorage!.read(key: key);
+      } catch (e) {
+        debugPrint('Secure storage read error, falling back: $e');
+        _useWebFallback = true;
+        final prefs = await SharedPreferences.getInstance();
+        return prefs.getString('secure_$key');
+      }
+    }
+  }
+
+  Future<void> _deleteSecure(String key) async {
+    if (_useWebFallback || _secureStorage == null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('secure_$key');
+      } catch (e) {
+        debugPrint('SharedPreferences delete error: $e');
+      }
+    } else {
+      try {
+        await _secureStorage!.delete(key: key);
+      } catch (e) {
+        debugPrint('Secure storage delete error: $e');
+      }
+    }
+  }
 
   void _initDio() {
     _dio = Dio(BaseOptions(
@@ -143,30 +216,14 @@ class AuthProvider extends StateNotifier<AuthState> {
   }
 
   Future<void> _loadTokens() async {
-    String? accessToken;
-    String? refreshToken;
-
-    try {
-      accessToken = await _secureStorage.read(key: 'access_token');
-      refreshToken = await _secureStorage.read(key: 'refresh_token');
-    } catch (e) {
-      debugPrint('Secure storage read error: $e');
-      // Fallback: try to read from SharedPreferences on web
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        accessToken = prefs.getString('access_token_web');
-        refreshToken = prefs.getString('refresh_token_web');
-      } catch (e2) {
-        debugPrint('SharedPreferences fallback error: $e2');
-      }
-    }
+    final accessToken = await _readSecure('access_token');
+    final refreshToken = await _readSecure('refresh_token');
 
     if (accessToken != null && refreshToken != null) {
       final prefs = await SharedPreferences.getInstance();
       String? nickname = prefs.getString('nickname');
       final userId = prefs.getString('user_id');
 
-      // Set tokens in memory so Dio interceptor can use them
       state = state.copyWith(
         accessToken: accessToken,
         refreshToken: refreshToken,
@@ -174,7 +231,6 @@ class AuthProvider extends StateNotifier<AuthState> {
         nickname: nickname,
       );
 
-      // Validate tokens by calling /auth/me
       try {
         final meResponse = await _dio.get('/auth/me');
         if (meResponse.statusCode == 200) {
@@ -192,7 +248,6 @@ class AuthProvider extends StateNotifier<AuthState> {
         debugPrint('Token validation failed on load: $e');
       }
 
-      // If we reach here, tokens are invalid - clear everything
       await _clearStoredTokens();
       state = AuthState(isAuthenticated: false);
     }
@@ -219,25 +274,14 @@ class AuthProvider extends StateNotifier<AuthState> {
         final userId = data['user_id'].toString();
 
         debugPrint('Storing tokens...');
-        try {
-          await _secureStorage.write(key: 'access_token', value: accessToken);
-          await _secureStorage.write(key: 'refresh_token', value: refreshToken);
-          debugPrint('Tokens stored in secure storage');
-        } catch (storageError) {
-          debugPrint('Secure storage error, using SharedPreferences fallback: $storageError');
-        }
+        await _writeSecure('access_token', accessToken);
+        await _writeSecure('refresh_token', refreshToken);
+        debugPrint('Tokens stored');
 
         debugPrint('Getting SharedPreferences...');
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('user_id', userId);
-          // Also store tokens in SharedPreferences as fallback for web
-          await prefs.setString('access_token_web', accessToken);
-          await prefs.setString('refresh_token_web', refreshToken);
-          debugPrint('SharedPreferences updated');
-        } catch (prefsError) {
-          debugPrint('SharedPreferences error: $prefsError');
-        }
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_id', userId);
+        debugPrint('SharedPreferences updated');
 
         String? nickname;
         try {
@@ -367,8 +411,8 @@ class AuthProvider extends StateNotifier<AuthState> {
         final refreshToken = data['refresh_token'];
         final userId = data['user_id'].toString();
 
-        await _secureStorage.write(key: 'access_token', value: accessToken);
-        await _secureStorage.write(key: 'refresh_token', value: refreshToken);
+        await _writeSecure('access_token', accessToken);
+        await _writeSecure('refresh_token', refreshToken);
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_id', userId);
@@ -457,18 +501,14 @@ class AuthProvider extends StateNotifier<AuthState> {
   }
 
   Future<void> _clearStoredTokens() async {
-    try {
-      await _secureStorage.delete(key: 'access_token');
-      await _secureStorage.delete(key: 'refresh_token');
-    } catch (e) {
-      debugPrint('Secure storage delete error: $e');
-    }
+    await _deleteSecure('access_token');
+    await _deleteSecure('refresh_token');
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('user_id');
       await prefs.remove('nickname');
-      await prefs.remove('access_token_web');
-      await prefs.remove('refresh_token_web');
+      await prefs.remove('secure_access_token');
+      await prefs.remove('secure_refresh_token');
     } catch (e) {
       debugPrint('SharedPreferences clear error: $e');
     }
@@ -488,8 +528,8 @@ class AuthProvider extends StateNotifier<AuthState> {
         final newAccessToken = data['access_token'];
         final newRefreshToken = data['refresh_token'];
 
-        await _secureStorage.write(key: 'access_token', value: newAccessToken);
-        await _secureStorage.write(key: 'refresh_token', value: newRefreshToken);
+        await _writeSecure('access_token', newAccessToken);
+        await _writeSecure('refresh_token', newRefreshToken);
 
         state = state.copyWith(
           accessToken: newAccessToken,
