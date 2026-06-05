@@ -547,15 +547,14 @@ class _ChatPageState extends ConsumerState<ChatPage>
                   );
                 },
               ),
-              final lastResult = ragState.lastResult;
               if (message.role == 'assistant' &&
                   message.webSearchEnabled &&
-                  lastResult != null &&
-                  lastResult.sources.isNotEmpty)
+                  ragState.lastResult != null &&
+                  ragState.lastResult!.sources.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: RagSourceIndicator(
-                    sources: lastResult.sources,
+                    sources: ragState.lastResult!.sources,
                   ),
                 ),
             ],

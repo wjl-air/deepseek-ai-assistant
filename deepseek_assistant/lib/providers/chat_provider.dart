@@ -357,8 +357,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         model: hasImages ? 'mimo-v2.5' : settings.model,
         cancelToken: _cancelToken,
       );
-    } else {
-      if (chatService != null) {
+    } else if (chatService != null) {
       stream = chatService.chatStream(
         messages: apiMessages,
         tools: tools.isNotEmpty ? tools : null,

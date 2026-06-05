@@ -95,9 +95,9 @@ class _ChatBubbleState extends State<ChatBubble>
                     content: widget.message.content,
                     isStreaming: widget.isStreaming,
                   ),
-                final imageBase64List = widget.message.imageBase64List;
-                if (imageBase64List != null && imageBase64List.isNotEmpty)
-                  ...imageBase64List.map((base64) {
+                if (widget.message.imageBase64List != null &&
+                    widget.message.imageBase64List!.isNotEmpty)
+                  ...widget.message.imageBase64List!.map((base64) {
                     final bytes = ImageCacheManager.getImage(base64);
                     if (bytes == null) return const SizedBox.shrink();
                     return Padding(
@@ -114,9 +114,9 @@ class _ChatBubbleState extends State<ChatBubble>
                       ),
                     );
                   }),
-                final generatedImageUrls = widget.message.generatedImageUrls;
-                if (generatedImageUrls != null && generatedImageUrls.isNotEmpty)
-                  ...generatedImageUrls.map((url) =>
+                if (widget.message.generatedImageUrls != null &&
+                    widget.message.generatedImageUrls!.isNotEmpty)
+                  ...widget.message.generatedImageUrls!.map((url) =>
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: ClipRRect(
@@ -302,7 +302,7 @@ class _ChatBubbleState extends State<ChatBubble>
             child: Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                reasoningContent,
+                widget.message.reasoningContent!,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   height: 1.6,
