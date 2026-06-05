@@ -262,6 +262,7 @@ class AuthProvider extends StateNotifier<AuthState> {
     try {
       debugPrint('Attempting login for: $email');
       debugPrint('API base URL: ${AppConfig.backendApiBaseUrl}');
+      debugPrint('Full login URL: ${AppConfig.backendApiBaseUrl}/auth/login');
 
       final response = await _dio.post(
         '/auth/login',
@@ -269,9 +270,11 @@ class AuthProvider extends StateNotifier<AuthState> {
       );
 
       debugPrint('Login response status: ${response.statusCode}');
+      debugPrint('Login response headers: ${response.headers}');
 
       if (response.statusCode == 200) {
         final data = response.data;
+        debugPrint('Login response data type: ${data.runtimeType}');
         debugPrint('Login response data: $data');
 
         // 安全地获取数据，避免空值错误

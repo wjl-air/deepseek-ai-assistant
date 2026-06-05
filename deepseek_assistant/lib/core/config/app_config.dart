@@ -5,9 +5,10 @@ class AppConfig {
   // 支持编译时通过 --dart-define 注入，生产环境使用 /api 由 Nginx 代理
   // 使用相对路径，由 Nginx 反向代理到后端
   // 开发环境可通过 --dart-define 覆盖
+  // 默认值设置为 /api，生产环境直接使用，开发环境通过 --dart-define=API_BASE_URL=http://localhost:8000 覆盖
   static const String backendApiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:8000',  // 开发环境用绝对路径
+    defaultValue: '/api',  // 生产环境使用相对路径
   );
   static const String chatCompletionsPath = '/chat/completions';
 
