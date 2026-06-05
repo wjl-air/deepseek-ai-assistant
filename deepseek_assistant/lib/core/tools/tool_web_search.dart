@@ -77,9 +77,9 @@ class WebSearchTool extends AiTool {
 
     // 先检查缓存
     final cachedEntry = _searchCache[normalizedQuery];
-    if (_isCacheValid(cachedEntry)) {
+    if (_isCacheValid(cachedEntry) && cachedEntry != null) {
       developer.log('使用缓存的搜索结果', name: 'WebSearch');
-      _lastSources = cachedEntry!.sources;
+      _lastSources = cachedEntry.sources;
       return cachedEntry.result;
     }
 

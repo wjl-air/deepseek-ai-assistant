@@ -333,8 +333,15 @@ class AuthProvider extends StateNotifier<AuthState> {
       debugPrint('Login DioException: ${e.message}');
       debugPrint('Response data: ${e.response?.data}');
       debugPrint('Status code: ${e.response?.statusCode}');
-      final detail = e.response?.data?['detail'];
-      if (detail != null && detail is String && detail.isNotEmpty) {
+      final data = e.response?.data;
+      String? detail;
+      if (data is Map) {
+        final detailValue = data['detail'];
+        if (detailValue != null) {
+          detail = detailValue.toString();
+        }
+      }
+      if (detail != null && detail.isNotEmpty) {
         return detail;
       }
       if (e.response?.statusCode == 401) {

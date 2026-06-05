@@ -94,6 +94,12 @@ class ChatNotifier extends StateNotifier<ChatState> {
   ChatNotifier(this._repository, this._ref) : super(ChatState()) {
     _apiRepository = ApiRepository(_ref);
     _listenToAuthChanges();
+    // 如果用户已认证（如 token 自动登录），主动加载对话列表
+    // 因为 listener 只在状态变化时触发，不会处理初始值
+    final authState = _ref.read(auth.authProvider);
+    if (authState.isAuthenticated) {
+      init();
+    }
   }
 
   void _listenToAuthChanges() {
@@ -352,7 +358,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
         cancelToken: _cancelToken,
       );
     } else {
-      stream = chatService!.chatStream(
+      if (chatService != null) {
+      stream = chatService.chatStream(
         messages: apiMessages,
         tools: tools.isNotEmpty ? tools : null,
         temperature: settings.temperature,
@@ -385,11 +392,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
 
     if (lastResponse == null) return;
 
-    if (lastResponse.toolCalls != null &&
-        lastResponse.toolCalls!.isNotEmpty) {
+    final toolCalls = lastResponse.toolCalls;
+    if (toolCalls != null && toolCalls.isNotEmpty) {
       await _handleToolCalls(
         conversationId: conversationId,
-        toolCalls: lastResponse.toolCalls!,
+        toolCalls: toolCalls,
         messages: messages,
       );
       return;

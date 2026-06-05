@@ -65,12 +65,14 @@ class _ChatPageState extends ConsumerState<ChatPage>
   }
 
   Future<void> _sendMessage() async {
-    final loc = AppLocalizations.of(context)!;
+    final loc = AppLocalizations.of(context);
+    if (loc == null) return;
     final text = _textController.text.trim();
-    final hasImage = _pendingImageBase64 != null;
+    final pendingImage = _pendingImageBase64;
+    final hasImage = pendingImage != null;
     if (text.isEmpty && !hasImage) return;
 
-    final imageData = hasImage ? [_pendingImageBase64!] : null;
+    final imageData = hasImage ? [pendingImage] : null;
 
     setState(() {
       _pendingImageBase64 = null;
@@ -87,7 +89,8 @@ class _ChatPageState extends ConsumerState<ChatPage>
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final loc = AppLocalizations.of(context)!;
+    final loc = AppLocalizations.of(context);
+    if (loc == null) return;
     final picker = ImagePicker();
     final xFile = await picker.pickImage(
       source: source,
@@ -122,7 +125,8 @@ class _ChatPageState extends ConsumerState<ChatPage>
   }
 
   Future<void> _startVoiceInput() async {
-    final loc = AppLocalizations.of(context)!;
+    final loc = AppLocalizations.of(context);
+    if (loc == null) return;
     final voiceNotifier = ref.read(voiceProvider.notifier);
     final available = await voiceNotifier.initSpeech();
 
@@ -154,7 +158,8 @@ class _ChatPageState extends ConsumerState<ChatPage>
   }
 
   Widget _buildDrawer() {
-    final loc = AppLocalizations.of(context)!;
+    final loc = AppLocalizations.of(context);
+    if (loc == null) return const SizedBox.shrink();
     final chatState = ref.watch(chatProvider);
     final convs = chatState.conversations;
     final currentId = chatState.currentConversationId;
@@ -262,7 +267,10 @@ class _ChatPageState extends ConsumerState<ChatPage>
   }
 
   String _formatDate(DateTime dt) {
-    final loc = AppLocalizations.of(context)!;
+    final loc = AppLocalizations.of(context);
+    if (loc == null) {
+      return '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    }
     final now = DateTime.now();
     final diff = now.difference(dt);
     if (diff.inMinutes < 1) return loc.justNow;
@@ -273,7 +281,8 @@ class _ChatPageState extends ConsumerState<ChatPage>
   }
 
   Future<void> _confirmDelete(String conversationId) async {
-    final loc = AppLocalizations.of(context)!;
+    final loc = AppLocalizations.of(context);
+    if (loc == null) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -389,7 +398,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                 : _buildMessageList(chatState),
           ),
           if (chatState.errorMessage != null)
-            _buildErrorBanner(chatState.errorMessage!),
+            _buildErrorBanner(chatState.errorMessage ?? ''),
           _buildModeSwitcher(),
           _buildInputArea(voiceData),
         ],
@@ -398,7 +407,8 @@ class _ChatPageState extends ConsumerState<ChatPage>
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
+    final loc = AppLocalizations.of(context);
+    if (loc == null) return const SizedBox.shrink();
     final authState = ref.watch(authProvider);
     final nickname = authState.nickname ?? '';
 
@@ -537,14 +547,15 @@ class _ChatPageState extends ConsumerState<ChatPage>
                   );
                 },
               ),
+              final lastResult = ragState.lastResult;
               if (message.role == 'assistant' &&
                   message.webSearchEnabled &&
-                  ragState.lastResult != null &&
-                  ragState.lastResult!.sources.isNotEmpty)
+                  lastResult != null &&
+                  lastResult.sources.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: RagSourceIndicator(
-                    sources: ragState.lastResult!.sources,
+                    sources: lastResult.sources,
                   ),
                 ),
             ],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/utils/image_cache_manager.dart';
+import '../../core/utils/text_to_speech.dart';
 import 'markdown_renderer.dart';
 
 class ChatBubble extends StatefulWidget {
@@ -27,6 +28,7 @@ class ChatBubble extends StatefulWidget {
 class _ChatBubbleState extends State<ChatBubble>
     with SingleTickerProviderStateMixin {
   bool _thinkingExpanded = false;
+  bool _isSpeaking = false;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -46,6 +48,9 @@ class _ChatBubbleState extends State<ChatBubble>
   @override
   void dispose() {
     _animationController.dispose();
+    if (_isSpeaking) {
+      TextToSpeechService.instance.stop();
+    }
     super.dispose();
   }
 
@@ -64,9 +69,9 @@ class _ChatBubbleState extends State<ChatBubble>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isUser = widget.message.role == 'user';
+    final reasoningContent = widget.message.reasoningContent;
     final showThinking = widget.message.shouldShowThinking &&
-        widget.message.reasoningContent != null &&
-        widget.message.reasoningContent!.isNotEmpty;
+        reasoningContent != null && reasoningContent.isNotEmpty;
 
     if (isUser) {
       return _buildUserBubble(theme);
@@ -90,9 +95,9 @@ class _ChatBubbleState extends State<ChatBubble>
                     content: widget.message.content,
                     isStreaming: widget.isStreaming,
                   ),
-                if (widget.message.imageBase64List != null &&
-                    widget.message.imageBase64List!.isNotEmpty)
-                  ...widget.message.imageBase64List!.map((base64) {
+                final imageBase64List = widget.message.imageBase64List;
+                if (imageBase64List != null && imageBase64List.isNotEmpty)
+                  ...imageBase64List.map((base64) {
                     final bytes = ImageCacheManager.getImage(base64);
                     if (bytes == null) return const SizedBox.shrink();
                     return Padding(
@@ -109,9 +114,9 @@ class _ChatBubbleState extends State<ChatBubble>
                       ),
                     );
                   }),
-                if (widget.message.generatedImageUrls != null &&
-                    widget.message.generatedImageUrls!.isNotEmpty)
-                  ...widget.message.generatedImageUrls!.map((url) =>
+                final generatedImageUrls = widget.message.generatedImageUrls;
+                if (generatedImageUrls != null && generatedImageUrls.isNotEmpty)
+                  ...generatedImageUrls.map((url) =>
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: ClipRRect(
@@ -220,6 +225,23 @@ class _ChatBubbleState extends State<ChatBubble>
             },
           ),
           _ToolbarButton(
+            icon: _isSpeaking ? Icons.stop_circle_outlined : Icons.volume_up_outlined,
+            tooltip: _isSpeaking ? '停止播放' : '语音播放',
+            iconColor: _isSpeaking ? theme.colorScheme.primary : iconColor,
+            onTap: () async {
+              if (_isSpeaking) {
+                await TextToSpeechService.instance.stop();
+                setState(() => _isSpeaking = false);
+              } else {
+                setState(() => _isSpeaking = true);
+                TextToSpeechService.instance.setOnComplete(() {
+                  if (mounted) setState(() => _isSpeaking = false);
+                });
+                await TextToSpeechService.instance.speak(widget.message.content);
+              }
+            },
+          ),
+          _ToolbarButton(
             icon: Icons.refresh,
             tooltip: '重新生成',
             iconColor: iconColor,
@@ -280,7 +302,7 @@ class _ChatBubbleState extends State<ChatBubble>
             child: Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                widget.message.reasoningContent!,
+                reasoningContent,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   height: 1.6,

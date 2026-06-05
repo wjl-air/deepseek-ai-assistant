@@ -3,9 +3,11 @@ class AppConfig {
 
   static const String apiBaseUrl = 'https://token-plan-cn.xiaomimimo.com/v1';
   // 支持编译时通过 --dart-define 注入，生产环境使用 /api 由 Nginx 代理
+  // 使用相对路径，由 Nginx 反向代理到后端
+  // 开发环境可通过 --dart-define 覆盖
   static const String backendApiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:8000',
+    defaultValue: 'http://localhost:8000',  // 开发环境用绝对路径
   );
   static const String chatCompletionsPath = '/chat/completions';
 
